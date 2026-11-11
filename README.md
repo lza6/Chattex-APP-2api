@@ -189,7 +189,8 @@ test_edges.py               29 项边界契约（畸形输入必须 4xx，不能
 verify_demo.py              Playwright 浏览器验收
 docs/PROTOCOL.md            协议规格（含证据等级与实测凭证判定）
 docs/REVERSE-REPORT.md      逆向分析报告
-docs/NEW-API-INTEGRATION.md 对接 new-api 的契约
+docs/NEW-API-INTEGRATION.md 对接 new-api 的契约（渠道字段表 + 故障排查）
+docs/HANDOFF-PROMPT.md      可直接粘贴给新会话的交接 Prompt
 jadx-out/ jadx-bad/         反编译产物（jadx 1.5.6，含 --show-bad-code 回退）
 work/ evidence/             原始证据（dex 字符串、模型清单、截图）
 ```
