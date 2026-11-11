@@ -1,0 +1,22 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 样本与反编译产物（体积大 / 含完整凭证字符串，不入库）
+*.apk
+x/
+jadx-out/
+jadx-bad/
+work/
+
+# 运行时
+*.log
+*.pid
+
+# os / editor
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/

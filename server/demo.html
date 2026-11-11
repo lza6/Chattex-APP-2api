@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chattex 2API</title>
+<style>
+  :root{
+    --bg:#0e0f13; --panel:#16181f; --panel2:#1d202a; --line:#2a2e3a;
+    --fg:#e8e6e3; --dim:#8b8f9c; --accent:#e07a3c; --accent2:#5b8def;
+    --ok:#4fbf7f; --warn:#e0b93c; --bad:#e05555;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:15px/1.6 ui-sans-serif,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial}
+  header{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+  h1{font-size:18px;margin:0;letter-spacing:.02em}
+  .sub{color:var(--dim);font-size:13px}
+  .badge{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  .badge.real{color:var(--ok);border-color:#2c5a3f}
+  .badge.mock{color:var(--warn);border-color:#5a4a20}
+  .badge.err{color:var(--bad);border-color:#5a2c2c}
+  main{display:grid;grid-template-columns:1fr 340px;gap:0;min-height:calc(100vh - 76px)}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .work{padding:24px;overflow:auto}
+  aside{border-left:1px solid var(--line);background:var(--panel);padding:20px;overflow:auto}
+  @media(max-width:900px){aside{border-left:none;border-top:1px solid var(--line)}}
+  .tabs{display:flex;gap:8px;margin-bottom:20px}
+  .tab{padding:7px 16px;border-radius:8px;border:1px solid var(--line);background:transparent;
+       color:var(--dim);cursor:pointer;font-size:14px}
+  .tab.on{background:var(--panel2);color:var(--fg);border-color:#3a3f4e}
+  .pane{display:none}
+  .pane.on{display:block}
+  label{display:block;font-size:12px;color:var(--dim);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+  select,input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
+       color:var(--fg);border-radius:8px;padding:10px 12px;font:inherit;font-size:14px}
+  textarea{resize:vertical;min-height:76px}
+  button{background:var(--accent);border:none;color:#141414;font-weight:600;padding:11px 22px;
+         border-radius:8px;cursor:pointer;font-size:14px}
+  button:disabled{opacity:.45;cursor:default}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg);font-weight:400}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:150px}
+  .log{margin-top:22px;border-top:1px solid var(--line);padding-top:16px}
+  .msg{padding:12px 14px;border-radius:10px;margin-bottom:10px;white-space:pre-wrap;word-break:break-word}
+  .msg.user{background:#1b2130;border:1px solid #26314a}
+  .msg.bot{background:var(--panel);border:1px solid var(--line)}
+  .msg .meta{font-size:11px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+  .imgs{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+  .imgs figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px}
+  .imgs img{display:block;max-width:320px;width:100%;border-radius:6px}
+  .imgs figcaption{font-size:11px;color:var(--dim);padding-top:6px}
+  .kv{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dotted #242833}
+  .kv span:first-child{color:var(--dim)}
+  .kv span:last-child{font-variant-numeric:tabular-nums}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);
+     margin:0 0 10px;font-weight:600}
+  .note{font-size:12px;color:var(--dim);line-height:1.5;margin-top:10px}
+  .banner{display:none;margin:0 24px;padding:10px 14px;border-radius:8px;background:#2a2110;
+          border:1px solid #5a4a20;color:#e8c98a;font-size:13px}
+  .banner.on{display:block}
+  pre{background:#0a0b0e;border:1px solid var(--line);border-radius:8px;padding:12px;
+      overflow:auto;font-size:12px;color:#b9c0cf;max-height:220px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Chattex 2API</h1>
+  <span class="sub">Anthropic Messages + Gemini image, OpenAI-compatible</span>
+  <span id="modeBadge" class="badge">connecting…</span>
+</header>
+<div id="banner" class="banner"></div>
+
+<main>
+  <div class="work">
+    <div class="tabs">
+      <button class="tab on" data-pane="chat">对话</button>
+      <button class="tab" data-pane="image">文生图</button>
+      <button class="tab" data-pane="caricature">照片卡通化</button>
+    </div>
+
+    <section id="pane-chat" class="pane on">
+      <div class="row">
+        <div>
+          <label>模型</label>
+          <select id="chatModel">
+            <option value="claude-sonnet-5">claude-sonnet-5</option>
+            <option value="claude-opus-5">claude-opus-5</option>
+            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+          </select>
+        </div>
+        <div>
+          <label>人设 · 系统提示</label>
+          <select id="persona"><option value="">（默认 Claude）</option></select>
+        </div>
+        <div>
+          <label>流式</label>
+          <select id="stream"><option value="1">开启</option><option value="0">关闭</option></select>
+        </div>
+      </div>
+      <label>消息</label>
+      <textarea id="chatPrompt">用三句话解释为什么 0.1 + 0.2 != 0.3。</textarea>
+      <div class="row" style="margin-top:14px">
+        <button id="sendChat" style="flex:0 0 auto">发送</button>
+        <button id="clearChat" class="ghost" style="flex:0 0 auto">清空</button>
+      </div>
+      <div class="log" id="chatLog"></div>
+    </section>
+
+    <section id="pane-image" class="pane">
+      <label>提示词</label>
+      <textarea id="imagePrompt">一位穿橙色风衣的女程序员站在雨夜的霓虹街头，电影级光影</textarea>
+      <div class="row">
+        <div>
+          <label>风格</label>
+          <select id="imageStyle"></select>
+        </div>
+        <div>
+          <label>比例</label>
+          <select id="imageRatio">
+            <option value="1:1">1:1</option><option value="3:4">3:4</option>
+            <option value="4:3">4:3</option><option value="16:9">16:9</option><option value="9:16">9:16</option>
+          </select>
+        </div>
+        <div>
+          <label>返回格式</label>
+          <select id="imageFmt"><option value="url">url</option><option value="b64_json">b64_json</option></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button id="sendImage" style="flex:0 0 auto">生成</button>
+      </div>
+      <div class="imgs" id="imageOut"></div>
+      <pre id="imageRaw" style="display:none"></pre>
+    </section>
+
+    <section id="pane-caricature" class="pane">
+      <label>照片</label>
+      <input type="file" id="photo" accept="image/*">
+      <div class="row">
+        <div>
+          <label>画风</label>
+          <select id="carStyle"></select>
+        </div>
+        <div>
+          <label>夸张度</label>
+          <select id="carExag">
+            <option>Low</option><option selected>Medium</option><option>High</option>
+          </select>
+        </div>
+        <div>
+          <label>色调</label>
+          <select id="carColor">
+            <option>Natural</option><option selected>Vibrant</option><option>Pastel</option>
+          </select>
+        </div>
+      </div>
+      <label>主体描述（留空则用 Gemini 视觉自动生成）</label>
+      <input type="text" id="carSubject" placeholder="a man in his thirties, short dark hair, round glasses">
+      <div class="row" style="margin-top:14px">
+        <button id="sendCar" style="flex:0 0 auto">生成卡通化</button>
+      </div>
+      <div class="imgs" id="carOut"></div>
+    </section>
+  </div>
+
+  <aside>
+    <h2>网关状态</h2>
+    <div id="health"></div>
+    <h2 style="margin-top:22px">模型</h2>
+    <div id="models"></div>
+    <h2 style="margin-top:22px">说明</h2>
+    <p class="note">
+      所有请求走本机网关 <code id="baseUrl"></code>，与 Chattex 客户端同一套上游协议。
+      <br><br>
+      mock 模式下文本与图片都由本地确定性生成，页面顶部会出现黄色提示条。
+      在真实模式下，响应头会带 <code>X-Chattex-Source: real</code>。
+    </p>
+  </aside>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const STYLES = ["none","pop_art","2d_vector","3d_animation","comic_book","watercolor","sketch","anime"];
+const STYLE_LABEL = {
+  none:"写实", pop_art:"波普", "2d_vector":"2D 矢量", "3d_animation":"3D 动画",
+  comic_book:"美漫", watercolor:"水彩", sketch:"铅笔", anime:"动漫"
+};
+let personasLoaded = false;
+
+function tab(name){
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.pane === name));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === "pane-" + name));
+}
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => tab(t.dataset.pane));
+
+STYLES.forEach(s => {
+  for (const id of ["#imageStyle", "#carStyle"]) {
+    const o = document.createElement("option");
+    o.value = s; o.textContent = STYLE_LABEL[s] + "  (" + s + ")";
+    if (s === "pop_art") o.selected = true;
+    $(id).appendChild(o);
+  }
+});
+
+$("#baseUrl").textContent = location.origin;
+
+async function loadHealth(){
+  try{
+    const r = await fetch("/health");
+    const h = await r.json();
+    const eff = h.effective || {};
+    const anyMock = eff.chat === "mock" || eff.image === "mock";
+    const b = $("#modeBadge");
+    b.className = "badge " + (anyMock ? "mock" : "real");
+    b.textContent = "chat:" + eff.chat + "  image:" + eff.image;
+    const banner = $("#banner");
+    if (anyMock){
+      banner.className = "banner on";
+      banner.textContent = "MOCK 模式：下面的文本与图片由本地确定性生成，不是真实上游产物。"
+        + " 配置 CHATTEX_ANTHROPIC_KEY / CHATTEX_GEMINI_KEY 后重启网关即可切换真实模式。";
+    } else {
+      banner.className = "banner";
+    }
+    $("#health").innerHTML = Object.entries({
+      "mode": h.mode,
+      "chat": eff.chat,
+      "image": eff.image,
+      "anthropic key": h.anthropic_key ? "已配置" : "未配置",
+      "gemini key": h.gemini_key ? "已配置" : "未配置",
+      "并发上限": h.max_concurrency,
+      "chat 次数": (h.counters||{}).chat ?? 0,
+      "image 次数": (h.counters||{}).image ?? 0,
+      "mock 次数": (h.counters||{}).mock ?? 0,
+      "错误": (h.counters||{}).errors ?? 0,
+    }).map(([k,v]) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`).join("");
+  }catch(e){
+    $("#modeBadge").className = "badge err";
+    $("#modeBadge").textContent = "gateway down";
+  }
+}
+
+async function loadModels(){
+  try{
+    const r = await fetch("/v1/models");
+    const d = await r.json();
+    $("#models").innerHTML = d.data.map(m =>
+      `<div class="kv"><span>${m.id}</span><span>${m.owned_by}</span></div>`).join("");
+  }catch(e){}
+}
+
+async function loadPersonas(){
+  if (personasLoaded) return;
+  try{
+    const r = await fetch("/v1/personas");
+    const d = await r.json();
+    d.data.forEach(p => {
+      const o = document.createElement("option");
+      o.value = p.id; o.textContent = p.name + " · " + p.role;
+      $("#persona").appendChild(o);
+    });
+    personasLoaded = true;
+  }catch(e){}
+}
+
+function bubble(who, text, meta){
+  const el = document.createElement("div");
+  el.className = "msg " + (who === "user" ? "user" : "bot");
+  el.innerHTML = `<div class="meta">${meta || who}</div><div class="body"><span class="txt"></span></div>`;
+  el.querySelector(".txt").textContent = text;
+  $("#chatLog").appendChild(el);
+  return el.querySelector(".txt");
+}
+
+async function sendChat(){
+  const prompt = $("#chatPrompt").value.trim();
+  if (!prompt) return;
+  const model = $("#chatModel").value;
+  const stream = $("#stream").value === "1";
+  const persona = $("#persona").value;
+  const btn = $("#sendChat"); btn.disabled = true;
+  bubble("user", prompt, "you");
+  const target = bubble("bot", "", model + (persona ? " · " + persona : ""));
+
+  const messages = [{role:"user", content: prompt}];
+  if (persona) messages[0].content = "（扮演 " + persona + "）\n" + prompt;
+
+  try{
+    const res = await fetch("/v1/chat/completions", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({model, messages, stream, max_tokens: 1024})
+    });
+    if (!res.ok){
+      target.textContent = "HTTP " + res.status + "\n" + await res.text();
+      return;
+    }
+    const src = res.headers.get("x-chattex-source") || "";
+    if (!stream){
+      const d = await res.json();
+      target.textContent = d.choices?.[0]?.message?.content ?? JSON.stringify(d);
+      target.closest(".msg").querySelector(".meta").textContent = model + " · " + src;
+      return;
+    }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "", acc = "";
+    target.closest(".msg").querySelector(".meta").textContent = model + " · " + src + " · stream";
+    while (true){
+      const {value, done} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream:true});
+      const parts = buf.split("\n\n");
+      buf = parts.pop();
+      for (const p of parts){
+        const line = p.trim();
+        if (!line.startsWith("data:")) continue;
+        const raw = line.slice(5).trim();
+        if (!raw || raw === "[DONE]") continue;
+        try{
+          const j = JSON.parse(raw);
+          const piece = j.choices?.[0]?.delta?.content;
+          if (piece){ acc += piece; target.textContent = acc; }
+        }catch(e){}
+      }
+    }
+  }catch(e){
+    target.textContent = "请求失败：" + e;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function sendImage(){
+  const prompt = $("#imagePrompt").value.trim();
+  if (!prompt) return;
+  const btn = $("#sendImage"); btn.disabled = true;
+  $("#imageOut").innerHTML = "";
+  const t0 = performance.now();
+  try{
+    const res = await fetch("/v1/images/generations", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({
+        model: "gemini-2.5-flash-image",
+        prompt,
+        style: $("#imageStyle").value,
+        aspect_ratio: $("#imageRatio").value,
+        response_format: $("#imageFmt").value,
+      })
+    });
+    const ms = Math.round(performance.now() - t0);
+    if (!res.ok){
+      $("#imageOut").innerHTML = `<div class="msg bot">HTTP ${res.status}<br>${await res.text()}</div>`;
+      return;
+    }
+    const d = await res.json();
+    const src = res.headers.get("x-chattex-source") || "";
+    const item = d.data?.[0] || {};
+    const url = item.b64_json ? "data:image/png;base64," + item.b64_json : item.url;
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<img alt="generated"><figcaption>${src} · ${ms} ms</figcaption>`;
+    fig.querySelector("img").src = url;
+    $("#imageOut").appendChild(fig);
+    $("#imageRaw").style.display = "block";
+    $("#imageRaw").textContent = JSON.stringify(
+      {source: src, ms, revised_prompt: item.revised_prompt}, null, 2);
+  }catch(e){
+    $("#imageOut").innerHTML = `<div class="msg bot">请求失败：${e}</div>`;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function sendCaricature(){
+  const file = $("#photo").files[0];
+  if (!file){ alert("先选一张照片"); return; }
+  const btn = $("#sendCar"); btn.disabled = true;
+  $("#carOut").innerHTML = "";
+  const fd = new FormData();
+  fd.append("photo", file);
+  fd.append("style_id", $("#carStyle").value);
+  fd.append("exaggeration", $("#carExag").value);
+  fd.append("color_style", $("#carColor").value);
+  fd.append("subject", $("#carSubject").value);
+  const t0 = performance.now();
+  try{
+    const res = await fetch("/v1/images/caricature", {method:"POST", body: fd});
+    const ms = Math.round(performance.now() - t0);
+    if (!res.ok){
+      $("#carOut").innerHTML = `<div class="msg bot">HTTP ${res.status}<br>${await res.text()}</div>`;
+      return;
+    }
+    const blob = await res.blob();
+    const src = res.headers.get("x-chattex-source") || "";
+    const subj = res.headers.get("x-chattex-subject") || "";
+    let decoded = "";
+    try{ decoded = atob(subj); }catch(e){}
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<img alt="caricature"><figcaption>${src} · ${ms} ms${decoded ? " · subject: " + decoded.slice(0,90) : ""}</figcaption>`;
+    fig.querySelector("img").src = URL.createObjectURL(blob);
+    $("#carOut").appendChild(fig);
+  }catch(e){
+    $("#carOut").innerHTML = `<div class="msg bot">请求失败：${e}</div>`;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+$("#sendChat").onclick = sendChat;
+$("#sendImage").onclick = sendImage;
+$("#sendCar").onclick = sendCaricature;
+$("#clearChat").onclick = () => { $("#chatLog").innerHTML = ""; };
+
+loadHealth(); loadModels(); loadPersonas();
+setInterval(loadHealth, 5000);
+</script>
+</body>
+</html>
